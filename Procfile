@@ -1,1 +1,1 @@
-web: gunicorn cipher_shield.wsgi
+web: gunicorn Cipher_Shield.wsgi
