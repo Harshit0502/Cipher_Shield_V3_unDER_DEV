@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Message
-from auth_system.models import CustomUser
+from django.contrib.auth.models import User
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 

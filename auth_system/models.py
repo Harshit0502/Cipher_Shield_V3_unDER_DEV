@@ -1,9 +1,11 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib.auth.models import User
 
-class CustomUser(AbstractUser):
-    public_key = models.TextField(blank=True, null=True)
-    private_key_encrypted = models.TextField(blank=True, null=True)
+class KeyPair(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    public_key = models.TextField()
+    private_key = models.TextField()  # Optional, only store if encrypted
 
     def __str__(self):
-        return self.username
+        return f"KeyPair for {self.user.username}"

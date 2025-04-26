@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser
+from django.contrib.auth.models import User
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
@@ -7,12 +7,12 @@ class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
-        model = CustomUser
+        model = User
         fields = ('username', 'email', 'password')
 
     def create(self, validated_data):
         password = validated_data.pop('password')
-        user = CustomUser(**validated_data)
+        user = User(**validated_data)
         user.set_password(password)
 
         # Generate RSA Key Pair
