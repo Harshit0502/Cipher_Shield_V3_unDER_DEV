@@ -1,6 +1,0 @@
-django
-djangorestframework
-djangorestframework-simplejwt
-gunicorn
-cryptography
-django-cors-headers
