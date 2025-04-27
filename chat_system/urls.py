@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import SendMessageView, ChatHistoryView
-from .views import PublicKeyRetrieveView
+from .views import SendMessageView, ChatHistoryView, PublicKeyRetrieveView
+
 urlpatterns = [
-    path('chat/send/', SendMessageView.as_view(), name='send_message'),
-    path('chat/history/', ChatHistoryView.as_view(), name='chat_history'),
-    path('auth/public_key/<str:username>/', PublicKeyRetrieveView.as_view()),
+    path('send/', SendMessageView.as_view(), name='send-message'),
+    path('history/', ChatHistoryView.as_view(), name='chat-history'),
+    path('public_key/<str:username>/', PublicKeyRetrieveView.as_view(), name='public-key'),
 ]
