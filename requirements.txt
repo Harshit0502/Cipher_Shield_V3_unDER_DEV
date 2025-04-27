@@ -7,4 +7,3 @@ gunicorn
 joblib
 scikit-learn
 pandas
-sklearn
