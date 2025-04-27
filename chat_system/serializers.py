@@ -18,9 +18,13 @@ class MessageSerializer(serializers.ModelSerializer):
         request = self.context['request']
         sender = request.user
         receiver = validated_data['receiver']
-        plain_text = request.data['plain_text']
 
-        # ✅ Step 1: Load receiver's public key
+        # ✅ Extract plain_text safely from validated_data
+        plain_text = validated_data.pop('plain_text', None)
+        if plain_text is None:
+            raise serializers.ValidationError({'error': 'Plain text message is required.'})
+
+        # ✅ Load receiver's public key
         try:
             keypair = KeyPair.objects.get(user=receiver)
             public_key = serialization.load_pem_public_key(
@@ -29,7 +33,7 @@ class MessageSerializer(serializers.ModelSerializer):
         except KeyPair.DoesNotExist:
             raise serializers.ValidationError({'error': 'Receiver public key not found.'})
 
-        # ✅ Step 2: Encrypt the message
+        # ✅ Encrypt the plain_text message
         encrypted_message = public_key.encrypt(
             plain_text.encode(),
             padding.OAEP(
@@ -39,9 +43,8 @@ class MessageSerializer(serializers.ModelSerializer):
             )
         )
 
-        # ✅ Step 3: Fill validated data
+        # ✅ Fill required fields
         validated_data['sender'] = sender
-        validated_data['encrypted_text'] = encrypted_message.hex()  # Store encrypted text as hex
+        validated_data['encrypted_text'] = encrypted_message.hex()  # Store as hex string
 
         return super().create(validated_data)
-
