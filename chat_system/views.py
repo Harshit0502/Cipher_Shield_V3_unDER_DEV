@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions
+from rest_framework import permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Q
@@ -7,6 +7,8 @@ from django.contrib.auth import get_user_model
 from auth_system.models import KeyPair
 from .models import Message
 from .serializers import MessageSerializer
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 
 User = get_user_model()
 
@@ -43,24 +45,46 @@ class PublicKeyRetrieveView(APIView):
         keypair = KeyPair.objects.get(user=receiver)
         return Response({'public_key': keypair.public_key})
 
-# 🚀 Send Message View
-class SendMessageView(generics.CreateAPIView):
-    serializer_class = MessageSerializer
+# 🚀 Send Message View (Fully Correct)
+class SendMessageView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        receiver_username = self.request.data.get('receiver')
-        plain_text = self.request.data.get('plain_text')
+    def post(self, request, *args, **kwargs):
+        sender = request.user
+        receiver_username = request.data.get('receiver')
+        plain_text = request.data.get('plain_text')
+
+        if not receiver_username or not plain_text:
+            return Response({'error': 'receiver and plain_text are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         receiver, error = get_receiver_or_error(receiver_username)
         if error:
-            raise Exception(error.data['error'])  # If you prefer crash. Else, better to modify to return error Response properly.
+            return error
 
-        error = validate_public_key(receiver)
-        if error:
-            raise Exception(error.data['error'])
+        # Encrypt the plain_text
+        try:
+            keypair = KeyPair.objects.get(user=receiver)
+            public_key = serialization.load_pem_public_key(keypair.public_key.encode())
+            encrypted_message = public_key.encrypt(
+                plain_text.encode(),
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+        except KeyPair.DoesNotExist:
+            return Response({'error': 'Receiver public key not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer.save(sender=self.request.user, receiver=receiver, plain_text=plain_text)
+        # Save the message manually
+        message = Message.objects.create(
+            sender=sender,
+            receiver=receiver,
+            encrypted_text=encrypted_message.hex()
+        )
+
+        serializer = MessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 # 🚀 Chat History View
 class ChatHistoryView(generics.ListAPIView):
@@ -73,7 +97,7 @@ class ChatHistoryView(generics.ListAPIView):
 
         other_user, error = get_receiver_or_error(other_user_username)
         if error:
-            raise Exception(error.data['error'])  # Same - optionally can modify to return Response
+            return Message.objects.none()  # Return empty queryset if error
 
         return Message.objects.filter(
             (Q(sender=user, receiver=other_user)) |
