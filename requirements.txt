@@ -1,8 +1,9 @@
-django
+Django>=4.0
 djangorestframework
 djangorestframework-simplejwt
-gunicorn
-cryptography
 django-cors-headers
+cryptography
+gunicorn
 joblib
+scikit-learn
 pandas
