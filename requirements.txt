@@ -4,3 +4,5 @@ djangorestframework-simplejwt
 gunicorn
 cryptography
 django-cors-headers
+joblib
+pandas
