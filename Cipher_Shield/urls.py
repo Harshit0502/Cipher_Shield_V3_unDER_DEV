@@ -15,9 +15,16 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path , include
+from django.urls import path, include
+from django.http import JsonResponse
+
+def root_response(request):
+    return JsonResponse({"message": "Welcome to Cipher Shield API 🔥"})
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('', root_response),
     path('auth/', include('auth_system.urls')),
     path('chat/', include('chat_system.urls')),
+    path('admin/', admin.site.urls),
 ]
+
