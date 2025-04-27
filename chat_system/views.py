@@ -9,6 +9,10 @@ from .models import Message
 from .serializers import MessageSerializer
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from rest_framework.permissions import IsAuthenticated
+import pandas as pd
+import joblib
+import os
 
 User = get_user_model()
 
@@ -103,3 +107,66 @@ class ChatHistoryView(generics.ListAPIView):
             (Q(sender=user, receiver=other_user)) |
             (Q(sender=other_user, receiver=user))
         ).order_by('timestamp')
+
+class DetectThreatsAPIView(APIView):
+    permission_classes = [IsAuthenticated]  # 🔐 Only authenticated users can trigger
+
+    def post(self, request):
+        try:
+            if not os.path.exists('extended_user_features_5000.csv'):
+                return Response({"error": "Features CSV not found."}, status=400)
+
+            df = pd.read_csv('extended_user_features_5000.csv')
+
+            if df.empty:
+                return Response({"error": "No user data found."}, status=400)
+
+            usernames = df['username']
+            X = df.drop(columns=['username'])
+
+            if not os.path.exists('rf_model.joblib') or not os.path.exists('scaler.joblib'):
+                return Response({"error": "Model or scaler not found."}, status=400)
+
+            model = joblib.load('rf_model.joblib')
+            scaler = joblib.load('scaler.joblib')
+            X_scaled = scaler.transform(X)
+
+            scores = model.predict_proba(X_scaled)[:, 1]
+
+            suspicious_users = []
+
+            for i, score in enumerate(scores):
+                threats = []
+                user = usernames[i]
+
+                if df.loc[i, 'msgs'] > 100:
+                    threats.append('Flooding Detected')
+                if df.loc[i, 'rate_limits'] > 5:
+                    threats.append('Rate Limit Abuse')
+                if df.loc[i, 'fails'] > 10:
+                    threats.append('Brute Force Attempt')
+                if score > 0.7:
+                    threats.append('ML Threat Detected')
+
+                if threats:
+                    suspicious_users.append({
+                        'username': user,
+                        'threats': threats,
+                        'ml_score': round(score, 3)
+                    })
+
+            if suspicious_users:
+                with open('alerts.log', 'w') as alert_file:
+                    for user_info in suspicious_users:
+                        alert_file.write(f"User: {user_info['username']} | Threats: {', '.join(user_info['threats'])} | ML Score: {user_info['ml_score']}\n")
+
+                return Response({
+                    "message": f"{len(suspicious_users)} suspicious users detected.",
+                    "alerts_created": True
+                }, status=200)
+
+            else:
+                return Response({"message": "No suspicious users detected."}, status=200)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
